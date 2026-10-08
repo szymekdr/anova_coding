@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coding Groups in One-Way ANOVA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-manual column (~68ch) for prose; "bench" modules break wider for plot + algebra side by side. */
+:root{
+  --bg:#f4f7f7; --surface:#ffffff; --ink:#15222a; --ink-2:#46555e; --muted:#76848c; --rule:#d6dfe1;
+  --accent:#0d6b70; --accent-soft:#e1efef; --mark:#b23a48; --code-bg:#eef3f3;
+  --g1:#2a78d6; --g2:#eb6834; --g3:#1baf7a; --g4:#4a3aa7;
+  --f-display:"Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-body:"Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-ui:"IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101719; --surface:#172124; --ink:#e6eef0; --ink-2:#a8b6bb; --muted:#7f8e94; --rule:#2a383c;
+    --accent:#5cc0c4; --accent-soft:#17313a; --mark:#ef7b86; --code-bg:#1b282c;
+    --g1:#3987e5; --g2:#d95926; --g3:#199e70; --g4:#9085e9; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101719; --surface:#172124; --ink:#e6eef0; --ink-2:#a8b6bb; --muted:#7f8e94; --rule:#2a383c;
+  --accent:#5cc0c4; --accent-soft:#17313a; --mark:#ef7b86; --code-bg:#1b282c;
+  --g1:#3987e5; --g2:#d95926; --g3:#199e70; --g4:#9085e9; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:18px;line-height:1.6;padding-inline:20px;padding-block:0 80px}
+.wrap{max-width:1180px;margin:0 auto}
+.prose{max-width:70ch}
+h1,h2,h3{font-family:var(--f-display);font-weight:500;text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.3rem);letter-spacing:-.01em}
+h2{font-size:1.85rem;margin-top:0}
+h3{font-size:1.25rem;font-weight:600;margin-top:1.6rem}
+p{margin:.8rem 0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--f-ui);text-transform:uppercase;letter-spacing:.09em;font-size:.78rem;color:var(--accent);font-weight:600}
+header.hero{padding-block:56px 28px;border-bottom:1px solid var(--rule);display:grid;gap:14px}
+header.hero .lede{font-size:1.2rem;color:var(--ink-2);max-width:62ch}
+.byline{font-family:var(--f-ui);color:var(--muted);font-size:.9rem}
+nav.toc{font-family:var(--f-ui);font-size:.95rem;display:flex;flex-wrap:wrap;gap:6px 18px;padding-block:16px;border-bottom:1px solid var(--rule)}
+nav.toc a{text-decoration:none;color:var(--ink-2)}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent)}
+nav.toc b{color:var(--accent);font-weight:600;margin-right:4px}
+section{padding-block:44px 8px;border-bottom:1px solid var(--rule)}
+section > .sec-head{display:grid;gap:6px;margin-bottom:10px}
+.mathblock{overflow-x:auto;overflow-y:hidden;padding-block:6px}
+.callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 6px 6px 0;margin:18px 0;max-width:70ch}
+.callout.warn{border-left-color:var(--mark)}
+.callout p{margin:.35rem 0}
+.tag{font-family:var(--f-ui);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+code,.mono{font-family:var(--f-mono);font-size:.86em}
+code{background:var(--code-bg);padding:1px 5px;border-radius:4px}
+pre{background:var(--code-bg);padding:12px 14px;border-radius:6px;overflow-x:auto;font-size:.85rem;line-height:1.5}
+/* bench module */
+.bench{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px 28px;margin-top:22px;align-items:start}
+.bench > *{min-width:0}
+@media (max-width:920px){.bench{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:14px 16px}
+.plot{width:100%;height:420px}
+.plot.tall{height:500px}
+.plot.short{height:330px}
+.controls{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-family:var(--f-ui);font-size:.92rem;margin:4px 0 12px}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{font:inherit;font-family:var(--f-ui);padding:5px 11px;border:1px solid var(--rule);background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.seg button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ctl-label{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;margin-right:2px}
+input[type=range]{accent-color:var(--accent);width:170px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-family:var(--f-ui);font-size:.9rem;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+.fig-cap{font-family:var(--f-ui);font-size:.88rem;color:var(--muted);margin-top:6px;line-height:1.45}
+.algebra h4{font-family:var(--f-ui);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:14px 0 2px;font-weight:600}
+.algebra h4:first-child{margin-top:0}
+.algebra .mathblock{font-size:.95rem}
+table.coef{border-collapse:collapse;width:100%;font-size:.95rem;margin-top:4px}
+table.coef th{font-family:var(--f-ui);font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;font-weight:600;border-bottom:1px solid var(--rule);padding:4px 6px}
+table.coef td{border-bottom:1px solid var(--rule);padding:6px;vertical-align:top}
+table.coef td.est{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+.cust{display:grid;grid-template-columns:auto repeat(2,72px);gap:4px 8px;align-items:center;font-family:var(--f-ui);font-size:.9rem}
+.cust input{width:72px;font-family:var(--f-mono);font-size:.9rem;padding:3px 5px;border:1px solid var(--rule);border-radius:4px;background:var(--surface);color:var(--ink)}
+.note{font-family:var(--f-ui);font-size:.88rem;color:var(--mark)}
+.kv{font-family:var(--f-ui);font-size:.92rem;color:var(--ink-2)}
+.toggle-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;font-family:var(--f-ui)}
+.datafacts{font-family:var(--f-ui);font-size:.9rem;color:var(--ink-2)}
+ol.pit{padding-left:1.2rem;max-width:72ch}
+ol.pit li{margin:.7rem 0}
+.refs li{margin:.5rem 0;max-width:80ch}
+.sticky-data{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--rule);padding-block:8px;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Linear models · design matrices · a working manual</div>
+  <h1>Coding groups in one-way ANOVA</h1>
+  <p class="lede">The same fit, many parameterisations. I walk through cell-means and effects models, treatment (dummy), sum-to-zero (±1), ±½, Helmert, successive-difference and polynomial codings, and show each one three ways: as algebra, as a matrix, and as geometry, where groups are points in "code space" and the model is a plane passing through them.</p>
+  <div class="byline">Szymek Drobniak · interactive notes · data are simulated</div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <a href="#s1"><b>1</b>Two ways to write the model</a>
+  <a href="#s2"><b>2</b>The one equation that explains every coding</a>
+  <a href="#s3"><b>3</b>Two groups: a line</a>
+  <a href="#s4"><b>4</b>Two groups, full indicators: a hinged plane</a>
+  <a href="#s5"><b>5</b>Three groups: a plane through a triangle</a>
+  <a href="#s6"><b>6</b>Three indicators: the simplex</a>
+  <a href="#s7"><b>7</b>Four groups, three contrasts: bubbles</a>
+  <a href="#s8"><b>8</b>Pitfalls and software</a>
+  <a href="#s9"><b>9</b>References</a>
+</nav>
+
+<div class="sticky-data">
+  <div class="legend" id="legend"></div>
+  <div class="toggle-row" style="margin:0">
+    <span class="ctl-label">Sample sizes</span>
+    <div class="seg" role="group" aria-label="Sample sizes">
+      <button id="bal-btn" aria-pressed="true">balanced</button>
+      <button id="unbal-btn" aria-pressed="false">unbalanced</button>
+    </div>
+    <span class="datafacts" id="datafacts"></span>
+  </div>
+</div>
+
+<!-- ============ 1 ============ -->
+<section id="s1">
+  <div class="sec-head"><div class="eyebrow">Section 1</div><h2>Two ways to write the model</h2></div>
+  <div class="prose">
+    <p>Running example (simulated): nestling body mass (g) in up to four habitat types. Group \(i = 1,\dots,k\) has \(n_i\) birds, and \(y_{ij}\) is bird \(j\) in group \(i\). Sections 3–4 use the first two habitats, 5–6 the first three, and 7 all four.</p>
+
+    <h3>Cell-means model</h3>
+    <p>Every group gets its own mean. No intercept, \(k\) parameters, and each parameter is directly a group mean.</p>
+    <div class="mathblock">\[ y_{ij} = \mu_i + \varepsilon_{ij}, \qquad \varepsilon_{ij} \sim \mathcal N(0,\sigma^2). \]</div>
+    <p>In matrix form the design matrix is the indicator (one-hot) matrix \(\mathbf D\), with \(D_{\,\cdot,i}=1\) when the observation belongs to group \(i\). For \(k=3\):</p>
+    <div class="mathblock">\[
+    \begin{bmatrix} y_{11}\\ \vdots\\ y_{1n_1}\\ y_{21}\\ \vdots\\ y_{2n_2}\\ y_{31}\\ \vdots\\ y_{3n_3}\end{bmatrix}
+    =
+    \underbrace{\begin{bmatrix} 1&0&0\\ \vdots&\vdots&\vdots\\ 1&0&0\\ 0&1&0\\ \vdots&\vdots&\vdots\\ 0&1&0\\ 0&0&1\\ \vdots&\vdots&\vdots\\ 0&0&1\end{bmatrix}}_{\mathbf D\;(N\times 3)}
+    \begin{bmatrix}\mu_1\\ \mu_2\\ \mu_3\end{bmatrix}
+    + \boldsymbol\varepsilon .
+    \]</div>
+
+    <h3>Effects model</h3>
+    <p>A common mean plus a group-specific deviation. This is how ANOVA is usually written in textbooks:</p>
+    <div class="mathblock">\[ y_{ij} = \mu + \alpha_i + \varepsilon_{ij}, \qquad \mathbf y = \underbrace{\big[\,\mathbf 1 \;\big|\; \mathbf D\,\big]}_{N\times(k+1)} \begin{bmatrix}\mu\\ \alpha_1\\ \vdots\\ \alpha_k\end{bmatrix} + \boldsymbol\varepsilon. \]</div>
+    <p>There are \(k+1\) parameters but only \(k\) group means to pin them down. The columns are linearly dependent, because the indicator columns add up to the intercept column, \(\mathbf D\mathbf 1_k = \mathbf 1_N\). So \(\operatorname{rank}[\mathbf 1|\mathbf D]=k\), \(\mathbf X^\top\mathbf X\) is singular, and for any constant \(c\)</p>
+    <div class="mathblock">\[ (\mu,\;\alpha_1,\dots,\alpha_k)\quad\text{and}\quad(\mu+c,\;\alpha_1-c,\dots,\alpha_k-c) \]</div>
+    <p>give identical fitted values. In plain terms, the model cannot tell "everything is 2 g heavier" apart from "the baseline is 2 g heavier". This is called <em>non-identifiability</em> or <em>over-parameterisation</em>. Sections 4 and 6 let you drag \(c\) and watch it happen.</p>
+
+    <div class="callout"><p><b>The fix is always the same.</b> Drop one degree of freedom by imposing a constraint (for example \(\alpha_1=0\), or \(\sum_i\alpha_i=0\)). In practice, we replace the \(k\) indicator columns with \(k-1\) <em>coded</em> columns. Every coding scheme in this manual is a particular choice of that replacement.</p></div>
+  </div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="s2">
+  <div class="sec-head"><div class="eyebrow">Section 2</div><h2>The one equation that explains every coding</h2></div>
+  <div class="prose">
+    <p>A coding scheme is a \(k\times(k-1)\) <b>coding matrix</b> \(\mathbf C\). Row \(i\) of \(\mathbf C\), written \(\mathbf c_i^\top\), holds the values the covariates \(x_1,\dots,x_{k-1}\) take for every observation in group \(i\). The design matrix is \(\mathbf X = \mathbf D\,[\mathbf 1\,|\,\mathbf C]\), so the model is</p>
+    <div class="mathblock">\[ y_{ij} = \beta_0 + \beta_1 x_{1i} + \dots + \beta_{k-1}x_{k-1,i} + \varepsilon_{ij}, \qquad (x_{1i},\dots,x_{k-1,i}) = \mathbf c_i^\top. \]</div>
+    <p>Stack the \(k\) distinct rows of the design matrix (one per group) into a square matrix \(\mathbf B = [\mathbf 1\,|\,\mathbf C]\). The expected value for group \(i\) is just row \(i\) of \(\mathbf B\) times \(\beta\):</p>
+    <div class="mathblock">\[ \boxed{\;\mu = \mathbf B\,\beta \quad\Longleftrightarrow\quad \beta = \mathbf B^{-1}\mu\;} \]</div>
+    <p>Everything follows from this:</p>
+    <ul>
+      <li><b>Coefficients are weighted sums of group means.</b> The weights are the rows of \(\mathbf B^{-1}\), called the <b>hypothesis matrix</b> (also "contrast matrix"; the terms are used loosely). To know what \(\beta_j\) means, read row \(j\) of \(\mathbf B^{-1}\), <em>not</em> column \(j\) of \(\mathbf C\). The two coincide (up to scale) only when the columns of \(\mathbf C\) are centred and mutually orthogonal (Helmert, polynomial). For treatment coding they look nothing alike.</li>
+      <li><b>Estimates are just sample means pushed through \(\mathbf B^{-1}\).</b> With \(\mathbf N = \operatorname{diag}(n_i)\) and \(\bar{\mathbf y}\) the vector of group sample means, \(\mathbf X^\top\mathbf X = \mathbf B^\top\mathbf N\mathbf B\) and \(\mathbf X^\top\mathbf y = \mathbf B^\top\mathbf N\bar{\mathbf y}\), so \(\hat\beta = \mathbf B^{-1}\mathbf N^{-1}\mathbf B^{-\top}\mathbf B^\top\mathbf N\bar{\mathbf y} = \mathbf B^{-1}\bar{\mathbf y}\). This holds whether the design is balanced or not.</li>
+      <li><b>Every non-intercept row of \(\mathbf B^{-1}\) is a true contrast</b> (its weights sum to 0). That follows from \(\mathbf B^{-1}\mathbf B=\mathbf I\) and the first column of \(\mathbf B\) being all ones. The intercept row's weights sum to 1.</li>
+      <li><b>Fit is invariant.</b> Any invertible \(\mathbf B\) spans the same column space as \(\mathbf D\). Fitted values, residuals, \(R^2\) and the omnibus \(F\) test are identical for every coding. Only the questions the individual \(\beta\)s answer change.</li>
+      <li><b>Sampling covariance:</b> \(\operatorname{Var}(\hat\beta)=\sigma^2\,\mathbf B^{-1}\mathbf N^{-1}\mathbf B^{-\top}\). With balanced data, the slope estimates are uncorrelated exactly when the columns of \(\mathbf C\) are centred and mutually orthogonal.</li>
+    </ul>
+    <h3>The geometric picture</h3>
+    <p>Treat \(\mathbf c_i\) as a <em>position</em>. Each group is a point in \((k-1)\)-dimensional code space, and the model is the affine function \(f(\mathbf x)=\beta_0+\beta^\top\mathbf x\) evaluated there. With \(k\) points and \(k\) parameters, \(f\) is the unique plane (hyperplane) through the \(k\) group means. It interpolates them exactly: the one-way model is saturated in the groups. Then:</p>
+    <ul>
+      <li>\(\beta_0 = f(\mathbf 0)\) is the plane's height at the origin of code space. If the origin is a group's position, \(\beta_0\) is that group's mean. If the origin lies elsewhere, \(\beta_0=\sum_i w_i\mu_i\), where \(w\) are the <b>barycentric coordinates</b> of the origin relative to the group points (\(\sum w_i=1,\ \sum w_i\mathbf c_i=\mathbf 0\)). These are exactly the first row of \(\mathbf B^{-1}\). Centred codings put the origin at the centroid, so \(\beta_0\) = unweighted mean of group means.</li>
+      <li>\(\beta_j = f(\mathbf e_j)-f(\mathbf 0)\) is the slope along axis \(j\): how much \(f\) changes per unit step in \(x_j\). Its meaning depends on where the groups sit along that axis and how far apart they are, which is why rescaling a code from ±1 to ±½ doubles the coefficient.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="s3">
+  <div class="sec-head"><div class="eyebrow">Section 3 · k = 2</div><h2>Two groups: a line through two means</h2></div>
+  <div class="prose">
+    <p>With one coded column \(x\), group 1 sits at \(x=a\) and group 2 at \(x=b\). The model is a straight line through the two group means:</p>
+    <div class="mathblock">\[ \beta_1 = \frac{\mu_2-\mu_1}{b-a},\qquad \beta_0 = \mu_1 - a\,\beta_1 = \frac{b}{b-a}\,\mu_1 + \frac{-a}{b-a}\,\mu_2 . \]</div>
+    <p>The intercept is the line's height at \(x=0\), and the slope is the change per one unit of \(x\). Switch schemes and watch the same two means get re-described. The <em>custom</em> option lets you drag \(a\) and \(b\) freely.</p>
+  </div>
+  <div class="bench">
+    <div class="panel">
+      <div class="controls"><span class="ctl-label">Coding</span><div class="seg" id="k2-seg" role="group" aria-label="Two-group coding"></div></div>
+      <div class="controls" id="k2-custom" hidden>
+        <label for="k2-a">a (group 1)</label><input type="range" id="k2-a" min="-1.5" max="1.5" step="0.05" value="-1"><span class="num" id="k2-a-v"></span>
+        <label for="k2-b">b (group 2)</label><input type="range" id="k2-b" min="-1.5" max="1.5" step="0.05" value="1"><span class="num" id="k2-b-v"></span>
+      </div>
+      <div id="k2-plot" class="plot"></div>
+      <div class="fig-cap">Points are individual birds, jittered horizontally around their code value. Large markers are group means. The dashed vertical line is \(x=0\): where the fitted line crosses it is \(\beta_0\). The step triangle shows \(\beta_1\), the rise over one unit of \(x\).</div>
+    </div>
+    <div class="panel algebra" id="k2-alg"></div>
+  </div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="s4">
+  <div class="sec-head"><div class="eyebrow">Section 4 · k = 2, both indicators</div><h2>Two indicators and the response: a plane on a hinge</h2></div>
+  <div class="prose">
+    <p>Now keep <em>both</em> indicator columns \(d_1,d_2\) and put the response on the vertical axis. Group 1 lives at \((d_1,d_2)=(1,0)\), group 2 at \((0,1)\). Every observation sits on the line \(d_1+d_2=1\). The effects model \(f(d)=\mu+\alpha_1d_1+\alpha_2d_2\) is a plane over the \((d_1,d_2)\) floor.</p>
+    <p>The data only constrain the plane <em>along that line</em>. The plane is free to rotate around it like a door on a hinge. Each angle is one value of \(c\) in \((\mu+c,\alpha_i-c)\), and each gives the same fitted values. The intercept \(\mu=f(0,0)\) is the height above the corner where no bird lives. Each constraint picks one angle:</p>
+    <ul>
+      <li><b>\(\mu = 0\)</b> (no intercept): the plane passes through the origin, and \(\alpha_i\) are the cell means.</li>
+      <li><b>\(\alpha_1=0\)</b> (treatment): \(\mu=\mu_1\), \(\alpha_2=\mu_2-\mu_1\).</li>
+      <li><b>\(\alpha_1+\alpha_2=0\)</b> (sum-to-zero): \(\mu=(\mu_1+\mu_2)/2\), \(\alpha_i=\mu_i-\mu\).</li>
+    </ul>
+  </div>
+  <div class="bench">
+    <div class="panel">
+      <div class="controls">
+        <span class="ctl-label">Constraint</span>
+        <div class="seg" id="hinge-seg" role="group" aria-label="Constraint">
+          <button data-p="zero">μ = 0</button><button data-p="trt">α₁ = 0</button><button data-p="sum">Σα = 0</button>
+        </div>
+      </div>
+      <div class="controls"><label for="hinge-c">intercept μ</label><input type="range" id="hinge-c" min="0" max="35" step="0.1"><span class="num" id="hinge-c-v"></span></div>
+      <div id="hinge-plot" class="plot tall"></div>
+      <div class="fig-cap">Floor axes: indicator columns \(d_1,d_2\). Height: body mass (g). The black line is the hinge \(d_1+d_2=1\), where all the data live. The vertical red segment at the origin is the intercept \(\mu\). Drag the slider: the plane tilts, the fit to the birds stays the same. Drag the scene to rotate it.</div>
+    </div>
+    <div class="panel algebra" id="hinge-alg"></div>
+  </div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="s5">
+  <div class="sec-head"><div class="eyebrow">Section 5 · k = 3</div><h2>Three groups: a plane through a triangle</h2></div>
+  <div class="prose">
+    <p>With \(k=3\) and two coded columns \((x_1,x_2)\), each group is a point on the floor, and the three points form a triangle. The model \(f(x_1,x_2)=\beta_0+\beta_1x_1+\beta_2x_2\) is the unique plane through the three group means above them. Changing the coding moves and reshapes the triangle. The plane above it changes to match, but its heights at the group positions (the fitted means) never change.</p>
+    <p>The small map on the right shows where the origin sits relative to the groups. That location fully determines what \(\beta_0\) means.</p>
+  </div>
+  <div class="bench">
+    <div class="panel">
+      <div class="controls"><span class="ctl-label">Coding</span><div class="seg" id="k3-seg" role="group" aria-label="Three-group coding"></div></div>
+      <div class="cust" id="k3-custom" hidden></div>
+      <div id="k3-plot" class="plot tall"></div>
+      <div class="fig-cap">Floor: coded columns \(x_1,x_2\); grey triangle = group positions, with a dot at the origin. Height: body mass. The red vertical segment rises from the origin to \(\beta_0\). The two arrows leave \((0,0,\beta_0)\) one unit along each axis, and their rises are \(\beta_1\) and \(\beta_2\).</div>
+      <div id="k3-map" class="plot short"></div>
+      <div class="fig-cap">Code-space map. The origin's barycentric weights with respect to the three group points are the first row of \(\mathbf B^{-1}\), so they give \(\beta_0=\sum w_i\mu_i\).</div>
+    </div>
+    <div class="panel algebra" id="k3-alg"></div>
+  </div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="s6">
+  <div class="sec-head"><div class="eyebrow">Section 6 · k = 3, all three indicators</div><h2>Three indicators: data on a simplex, the intercept off it</h2></div>
+  <div class="prose">
+    <p>Use all three indicators \(d_1,d_2,d_3\) as \(x,y,z\) axes. The groups sit at the unit vectors \((1,0,0),(0,1,0),(0,0,1)\), and every observation lies on the triangle \(d_1+d_2+d_3=1\) (the 2-simplex, shaded). There are now three spatial axes, so the response is drawn as <b>bubble size</b> (area ∝ mass) and colour.</p>
+    <p>The effects model \(f(\mathbf d)=\mu+\sum\alpha_id_i\) is a linear function of all of 3-D space, but the data only touch the simplex. Values at the vertices (the group means) are fixed, and so is the value at the centroid (the unweighted mean of means). Off the simplex, along the ray from the origin to the centroid, the function depends on \(c\). The bubble at the origin is the intercept, and nothing in the data supports its size. In this picture, a constraint is a rule for choosing it. A cell-means model (no intercept) is just one more such rule: it fixes the origin's value at 0.</p>
+  </div>
+  <div class="bench">
+    <div class="panel">
+      <div class="controls">
+        <span class="ctl-label">Constraint</span>
+        <div class="seg" id="simp-seg" role="group" aria-label="Constraint">
+          <button data-p="zero">μ = 0 (cell means)</button><button data-p="trt">α₁ = 0</button><button data-p="sum">Σα = 0</button>
+        </div>
+      </div>
+      <div class="controls"><label for="simp-c">intercept μ</label><input type="range" id="simp-c" min="0" max="30" step="0.1"><span class="num" id="simp-c-v"></span></div>
+      <div id="simp-plot" class="plot tall"></div>
+      <div class="fig-cap">Axes: indicators \(d_1,d_2,d_3\). Bubble area ∝ \(f\) (mass in g, measured from 0); colour also encodes \(f\). Vertex bubbles = group means (fixed). Grey bubbles along the dashed ray from origin to centroid show \(f\) off the data plane, and these change with \(\mu\).</div>
+    </div>
+    <div class="panel algebra" id="simp-alg"></div>
+  </div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="s7">
+  <div class="sec-head"><div class="eyebrow">Section 7 · k = 4</div><h2>Four groups, three contrasts: a tetrahedron of bubbles</h2></div>
+  <div class="prose">
+    <p>With four groups we need three coded columns, so code space is 3-D. The four groups are vertices of a tetrahedron, and the model is a hyperplane in 4-D, which I can't draw. So the response becomes bubble size again. Each vertex bubble is a group mean (always the same four). The bubble at the origin is \(\beta_0\), and it moves around inside or onto the tetrahedron as the coding changes. The arrow from the origin points along \((\beta_1,\beta_2,\beta_3)\), the direction in code space in which predicted mass rises fastest.</p>
+    <p>Polynomial coding assumes the levels are ordered and equally spaced. Here, treat habitats 1→4 as a gradient purely for illustration.</p>
+  </div>
+  <div class="bench">
+    <div class="panel">
+      <div class="controls"><span class="ctl-label">Coding</span><div class="seg" id="k4-seg" role="group" aria-label="Four-group coding"></div></div>
+      <div id="k4-plot" class="plot tall"></div>
+      <div class="fig-cap">Axes: coded columns \(x_1,x_2,x_3\). Coloured bubbles: group means at their code positions (area ∝ mass). Black-outlined bubble at the origin: \(\beta_0\). Arrow: gradient direction \((\beta_1,\beta_2,\beta_3)\), drawn at fixed length.</div>
+    </div>
+    <div class="panel algebra" id="k4-alg"></div>
+  </div>
+</section>
+
+<!-- ============ 8 ============ -->
+<section id="s8">
+  <div class="sec-head"><div class="eyebrow">Section 8</div><h2>Pitfalls and software</h2></div>
+  <ol class="pit">
+    <li><b>±1 coding halves the two-group difference.</b> With \(x\in\{+1,-1\}\) (R's <code>contr.sum</code>), \(\beta_1=(\mu_1-\mu_2)/2\). Groups are 2 units apart, so the slope per unit is half the gap. With ±½, \(\beta_1\) is the full difference. When extracting effect sizes from published coefficients for a meta-analysis, the coding has to be known. A factor of 2, or a flipped sign (which group got +1), goes straight into the effect size.</li>
+    <li><b>"Grand mean" is ambiguous when data are unbalanced.</b> Centred codings give \(\beta_0=\frac1k\sum_i\mu_i\), the <em>unweighted</em> mean of group means. The overall sample mean \(\bar y_{\cdot\cdot}=\sum_i n_i\bar y_i/N\) is a different number. Flip the sample-size toggle at the top and compare them in Sections 5–7.</li>
+    <li><b>Centred ≠ orthogonal.</b> Sum and successive-difference codings are centred (so \(\beta_0\) is the mean of means), but their columns are not orthogonal, so their slope estimates are correlated even in a balanced design. Helmert and polynomial codings are both centred and orthogonal. The algebra panels report \(\operatorname{corr}(\hat\beta_j,\hat\beta_l)\).</li>
+    <li><b>The coding matrix is not the hypothesis.</b> For treatment coding, column 1 of \(\mathbf C\) is \((0,1,0)^\top\), yet \(\beta_1\) tests \(\mu_2-\mu_1\). Design from the hypothesis side: write down the rows of \(\mathbf B^{-1}\) you want, then invert. The <code>hypr</code> R package (Rabe et al. 2020) and <code>HypothesisCoding</code> in Julia's StatsModels.jl do exactly that.</li>
+    <li><b>With interactions, coding changes what "main effect" means.</b> Under treatment coding, the main-effect coefficient of A in a model with A×B is the effect of A at the <em>reference level</em> of B. Under centred codings, it is the effect averaged over B's levels. This is also why Type III sums of squares are only meaningful with sum-to-zero-type contrasts.</li>
+    <li><b>Polynomial contrasts</b> (R's default for <em>ordered</em> factors) are scaled to unit length. \(\beta_1\) is not "g per level", and they only make sense for ordered, roughly equally spaced levels.</li>
+  </ol>
+  <div class="prose">
+    <h3>Setting codings in software</h3>
+<pre>## R
+contrasts(f) &lt;- contr.treatment(3)      # default for unordered factors (dummy, ref = level 1)
+contrasts(f) &lt;- contr.sum(3)            # +1/0/-1, sum-to-zero; last level gets -1
+contrasts(f) &lt;- contr.sum(2) / 2        # two groups: +/- 1/2 -> slope = full difference
+contrasts(f) &lt;- contr.helmert(3)
+contrasts(f) &lt;- MASS::contr.sdif(3)     # successive differences
+contrasts(f) &lt;- contr.poly(3)           # default for ordered factors
+solve(cbind(1, contrasts(f)))           # hypothesis matrix B^{-1}: what each beta means
+lm(y ~ 0 + f)                           # cell-means model
+
+## Julia (StatsModels.jl)
+fit(LinearModel, @formula(y ~ f), df;
+    contrasts = Dict(:f =&gt; EffectsCoding()))   # DummyCoding, HelmertCoding, SeqDiffCoding, HypothesisCoding</pre>
+    <p>A companion R script that reproduces the matrices and estimates on simulated data sits next to this file (<code>anova_coding_demo.R</code>).</p>
+  </div>
+</section>
+
+<!-- ============ 9 ============ -->
+<section id="s9">
+  <div class="sec-head"><div class="eyebrow">Section 9</div><h2>References</h2></div>
+  <ul class="refs">
+    <li>Schad, D. J., Vasishth, S., Hohenstein, S., &amp; Kliegl, R. (2020). How to capitalize on a priori contrasts in linear (mixed) models: A tutorial. <em>Journal of Memory and Language</em>, 110, 104038. <a href="https://doi.org/10.1016/j.jml.2019.104038">doi:10.1016/j.jml.2019.104038</a> (preprint: <a href="https://arxiv.org/abs/1807.10451">arXiv:1807.10451</a>). The clearest treatment of the hypothesis-matrix (generalised inverse) view.</li>
+    <li>Venables, W. N. Coding matrices, contrast matrices and linear models. Vignette of the R package <em>codingMatrices</em>. <a href="https://cran.r-project.org/web/packages/codingMatrices/index.html">CRAN</a>. On the distinction between coding and contrast matrices.</li>
+    <li>Rabe, M. M., Vasishth, S., Hohenstein, S., Kliegl, R., &amp; Schad, D. J. (2020). hypr: An R package for hypothesis-driven contrast coding. <em>Journal of Open Source Software</em>, 5(48), 2134. <a href="https://doi.org/10.21105/joss.02134">doi:10.21105/joss.02134</a></li>
+  </ul>
+  <p class="fig-cap">The geometric framing (groups as simplex vertices in code space, the intercept as the barycentric combination at the origin) follows directly from \(\mu=\mathbf B\beta\). It is my own way of presenting standard linear-model algebra here, not a result taken from a specific source.</p>
+</section>
+</div>
+
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] },
+  svg: { fontCache: 'global' },
+  startup: { typeset: true }
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<script>
+(function(){
+"use strict";
+/* ---------------- data (simulated, fixed seed) ---------------- */
+const GROUPS = [
+  {name:'Deciduous', mu:15.4}, {name:'Mixed', mu:16.9},
+  {name:'Coniferous', mu:14.2}, {name:'Urban park', mu:13.6}
+];
+const SD = 1.15, N_BAL=[10,10,10,10], N_UNBAL=[4,12,18,7];
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+const rng = mulberry32(20261007);
+function rnorm(){let u=0,v=0;while(u===0)u=rng();v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const POOL = GROUPS.map(g=>Array.from({length:18},()=>+(g.mu+SD*rnorm()).toFixed(2)));
+const JIT = POOL.map(p=>p.map(()=>rng()-0.5));
+let unbalanced=false;
+function sample(k){const n=(unbalanced?N_UNBAL:N_BAL).slice(0,k);return n.map((ni,i)=>POOL[i].slice(0,ni));}
+function means(k){return sample(k).map(a=>a.reduce((s,v)=>s+v,0)/a.length);}
+function grandMean(k){const s=sample(k).flat();return s.reduce((a,b)=>a+b,0)/s.length;}
+function ns(k){return (unbalanced?N_UNBAL:N_BAL).slice(0,k);}
+
+/* ---------------- linear algebra ---------------- */
+function inv(M){const n=M.length;const A=M.map((r,i)=>[...r,...Array.from({length:n},(_,j)=>i===j?1:0)]);
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    if(Math.abs(A[p][c])<1e-10)return null;[A[c],A[p]]=[A[p],A[c]];const d=A[c][c];for(let j=0;j<2*n;j++)A[c][j]/=d;
+    for(let r=0;r<n;r++)if(r!==c){const f=A[r][c];if(f)for(let j=0;j<2*n;j++)A[r][j]-=f*A[c][j];}}
+  return A.map(r=>r.slice(n));}
+const mv=(M,v)=>M.map(r=>r.reduce((s,x,j)=>s+x*v[j],0));
+const T=M=>M[0].map((_,j)=>M.map(r=>r[j]));
+const mm=(A,B)=>A.map(r=>B[0].map((_,j)=>r.reduce((s,x,l)=>s+x*B[l][j],0)));
+
+/* ---------------- coding schemes ---------------- */
+function contr(k,s,custom){
+  const Z=()=>Array.from({length:k},()=>Array(k-1).fill(0));
+  let C=Z();
+  switch(s){
+    case 'treatment': for(let i=1;i<k;i++)C[i][i-1]=1; break;
+    case 'reverse': for(let i=0;i<k-1;i++)C[i][i]=1; break; // reference = last group
+    case 'sum': for(let i=0;i<k-1;i++)C[i][i]=1; for(let j=0;j<k-1;j++)C[k-1][j]=-1; break;
+    case 'dev': C=[[-0.5],[0.5]]; break;
+    case 'helmert': for(let j=0;j<k-1;j++){for(let i=0;i<=j;i++)C[i][j]=-1;C[j+1][j]=j+1;} break;
+    case 'sdif': for(let j=1;j<k;j++)for(let i=1;i<=k;i++)C[i-1][j-1]=(i<=j)?-(k-j)/k:j/k; break;
+    case 'poly': { const x=Array.from({length:k},(_,i)=>i+1); const cols=[];
+      for(let d=1;d<k;d++){let v=x.map(t=>Math.pow(t,d));
+        const m=v.reduce((a,b)=>a+b,0)/k; v=v.map(t=>t-m);
+        for(const u of cols){const p=v.reduce((s,t,i)=>s+t*u[i],0);v=v.map((t,i)=>t-p*u[i]);}
+        const nr=Math.hypot(...v); cols.push(v.map(t=>t/nr));}
+      C=T(cols); break; }
+    case 'custom': C=custom.map(r=>r.slice()); break;
+    case 'cell': C=null; break;
+  }
+  return C;
+}
+const SCHEME_LABEL={cell:'cell means',treatment:'treatment (0/1)',reverse:'treatment, ref = last',sum:'sum-to-zero (±1)',dev:'deviation (±½)',helmert:'Helmert',sdif:'successive diff.',poly:'polynomial',custom:'custom'};
+const SCHEME_R={cell:'y ~ 0 + f',treatment:'contr.treatment',reverse:'contr.treatment(k, base = k)',sum:'contr.sum',dev:'-contr.sum(2) / 2',helmert:'contr.helmert',sdif:'MASS::contr.sdif',poly:'contr.poly',custom:'matrix you typed'};
+
+/* ---------------- formatting ---------------- */
+const MINUS='\u2212';
+function asFrac(x){ if(Math.abs(x)<1e-10) return {n:0,d:1};
+  for(let d=1;d<=24;d++){const n=Math.round(x*d); if(Math.abs(x*d-n)<1e-8) return {n,d};} return null;}
+function tex(x){const f=asFrac(x); if(!f) return x.toFixed(3); if(f.d===1) return String(f.n);
+  return (f.n<0?'-':'')+'\\tfrac{'+Math.abs(f.n)+'}{'+f.d+'}';}
+function fracTxt(x){const f=asFrac(x);if(!f)return fx(x,3);if(f.d===1)return fx(f.n,0);return (f.n<0?MINUS:'')+Math.abs(f.n)+'/'+f.d;}
+const fx=(x,d=2)=>(x<0?MINUS:'')+Math.abs(x).toFixed(d);
+function combo(w,sym){ // linear combination in TeX, w weights, sym(i) symbol
+  let s=''; w.forEach((c,i)=>{ if(Math.abs(c)<1e-10) return;
+    const f=asFrac(Math.abs(c)); let mag;
+    if(f&&f.d===1&&f.n===1) mag=''; else if(f) mag=(f.d===1?String(f.n):'\\tfrac{'+f.n+'}{'+f.d+'}'); else mag=Math.abs(c).toFixed(3)+'\\,';
+    const sign=c<0?'-':'+'; s+=(s===''?(c<0?'-':''):' '+sign+' ')+mag+sym(i); });
+  return s===''?'0':s; }
+function bmat(rows,env='bmatrix'){return '\\begin{'+env+'}'+rows.map(r=>r.join(' & ')).join('\\\\')+'\\end{'+env+'}';}
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function gcol(i){return cssVar('--g'+(i+1));}
+const GN=i=>GROUPS[i].name;
+
+/* ---------------- the algebra panel ---------------- */
+function words(s,k,j){ // plain-language meaning of beta_j (j=0 intercept)
+  const g=i=>GN(i);
+  if(s==='cell') return 'mean of group '+(j+1)+' ('+g(j)+')';
+  if(j===0){ if(s==='treatment') return 'mean of the reference group, '+g(0);
+    if(s==='reverse') return 'mean of the reference group, '+g(k-1);
+    if(s==='custom') return 'height of the plane at the origin (weights = barycentric coordinates of 0)';
+    return 'unweighted mean of the '+k+' group means'; }
+  switch(s){
+    case 'treatment': return g(j)+' − '+g(0);
+    case 'reverse': return g(j-1)+' − '+g(k-1);
+    case 'sum': return g(j-1)+' − mean of means';
+    case 'dev': return g(1)+' − '+g(0)+' (full difference)';
+    case 'helmert': return '['+g(j)+' − '+(j===1?g(0):'mean of groups 1…'+j)+'] / '+(j+1);
+    case 'sdif': return g(j)+' − '+g(j-1);
+    case 'poly': return ['linear','quadratic','cubic'][j-1]+' trend across ordered levels (orthonormal scale)';
+    default: return 'see the weights';
+  }
+}
+function algebraPanel(el,k,s,C,extra){
+  const mu=means(k), n=ns(k), cell=(s==='cell');
+  const B = cell ? Array.from({length:k},(_,i)=>Array.from({length:k},(_,j)=>i===j?1:0)) : C.map(r=>[1,...r]);
+  const Bi=inv(B);
+  if(!Bi){el.innerHTML='<p class="note">These codes put two groups in the same place, or all three on a line, so \\(\\mathbf B\\) is singular. The coefficients are not identifiable. Move a point.</p>';typeset(el);return null;}
+  const beta=mv(Bi,mu);
+  const p=B[0].length;
+  const bsym=j=> cell? '\\mu_{'+(j+1)+'}' : '\\beta_{'+j+'}';
+  const xs=j=>'x_{'+j+'i}';
+  let h='';
+  // coding table
+  if(!cell){
+    const head=['\\text{group}',...Array.from({length:k-1},(_,j)=>'x_{'+(j+1)+'}')];
+    const rows=C.map((r,i)=>['\\textsf{'+(i+1)+' '+GN(i)+'}',...r.map(tex)]);
+    h+='<h4>Coding scheme \u00b7 '+SCHEME_LABEL[s]+' <span class="mono">('+SCHEME_R[s]+')</span></h4>';
+    h+='<div class="mathblock">\\[\\mathbf C=\\left[\\begin{array}{l|'+'c'.repeat(k-1)+'}'+head.join('&')+'\\\\\\hline '+rows.map(r=>r.join('&')).join('\\\\')+'\\end{array}\\right]\\]</div>';
+  } else {
+    h+='<h4>Coding scheme \u00b7 cell means <span class="mono">(y ~ 0 + f)</span></h4><p class="kv">No intercept; one indicator column per group, so \\(\\mathbf X=\\mathbf D\\) and \\(\\mathbf B=\\mathbf I_'+k+'\\).</p>';
+  }
+  // model notation
+  h+='<h4>Model notation</h4>';
+  if(cell){ h+='<div class="mathblock">\\[y_{ij}='+Array.from({length:k},(_,i)=>'\\mu_{'+(i+1)+'}d_{'+(i+1)+'i}').join('+')+'+\\varepsilon_{ij}\\]</div>'; }
+  else { h+='<div class="mathblock">\\[y_{ij}=\\beta_0'+Array.from({length:k-1},(_,j)=>'+\\beta_{'+(j+1)+'}'+xs(j+1)).join('')+'+\\varepsilon_{ij}\\]</div>';
+    h+='<div class="mathblock">\\[\\begin{aligned}'+C.map((r,i)=>'\\mathbb E[y\\mid '+(i+1)+'] &= '+combo([1,...r],j=>j===0?'\\beta_0':'\\beta_{'+j+'}')+' = \\mu_{'+(i+1)+'}').join('\\\\')+'\\end{aligned}\\]</div>'; }
+  // matrix form
+  h+='<h4>Matrix form \\(\\mathbf y=\\mathbf X\\beta+\\varepsilon\\)</h4>';
+  const yRows=[],xRows=[];
+  B.forEach((r,i)=>{ const rr=r.map(tex);
+    yRows.push(['y_{'+(i+1)+'1}']); xRows.push(rr);
+    yRows.push(['\\vdots']); xRows.push(rr.map(()=>'\\vdots'));
+    yRows.push(['y_{'+(i+1)+'n_{'+(i+1)+'}}']); xRows.push(rr); });
+  const bvec=Array.from({length:p},(_,j)=>[bsym(j)]);
+  h+='<div class="mathblock">\\['+bmat(yRows)+'='+bmat(xRows)+bmat(bvec)+'+\\begin{bmatrix}\\varepsilon_{11}\\\\\\vdots\\\\\\varepsilon_{'+k+'n_{'+k+'}}\\end{bmatrix}\\]</div>';
+  h+='<p class="kv">Distinct rows of \\(\\mathbf X\\), one per group, give \\(\\mathbf B\\) and \\(\\mu=\\mathbf B\\beta\\), so \\(\\beta=\\mathbf B^{-1}\\mu\\):</p>';
+  h+='<div class="mathblock">\\[\\mathbf B='+bmat(B.map(r=>r.map(tex)))+',\\qquad \\mathbf B^{-1}='+bmat(Bi.map(r=>r.map(tex)))+'\\]</div>';
+  h+='<div class="mathblock">\\[\\hat\\beta=\\mathbf B^{-1}\\bar{\\mathbf y}='+bmat(Bi.map(r=>r.map(tex)))+bmat(mu.map(v=>[v.toFixed(2)]))+'='+bmat(beta.map(v=>[v.toFixed(3)]))+'\\]</div>';
+  // coefficient table
+  h+='<h4>What each coefficient means</h4><div class="tblwrap"><table class="coef"><thead><tr><th>Coef.</th><th>Weights on group means (row of B⁻¹)</th><th>In words</th><th style="text-align:right">Estimate</th></tr></thead><tbody>';
+  Bi.forEach((r,j)=>{ h+='<tr><td>\\('+bsym(j)+'\\)</td><td>\\('+(cell?'\\mu_{'+(j+1)+'}':combo(r,i=>'\\mu_{'+(i+1)+'}'))+'\\)</td><td>'+words(s,k,j)+'</td><td class="est">'+fx(beta[j],3)+'</td></tr>'; });
+  h+='</tbody></table></div>';
+  // sampling correlations among slopes
+  const V=mm(mm(Bi,n.map((ni,i)=>n.map((_,j)=>i===j?1/ni:0))),T(Bi));
+  const cr=[]; const start=cell?0:1;
+  for(let a=start;a<p;a++)for(let b=a+1;b<p;b++)cr.push('\\operatorname{corr}(\\hat{'+bsym(a).replace(/^\\/,'\\')+'},\\hat{'+bsym(b)+'})='+(V[a][b]/Math.sqrt(V[a][a]*V[b][b])).toFixed(2).replace('-','-'));
+  if(cr.length) h+='<p class="kv">Sampling correlations of slope estimates (\\(\\sigma^2\\mathbf B^{-1}\\mathbf N^{-1}\\mathbf B^{-\\top}\\)): \\('+cr.join(',\\;')+'\\)</p>';
+  if(!cell) h+='<p class="kv">Check: mean of group means = <span class="num">'+fx(mu.reduce((a,b)=>a+b,0)/k)+'</span> g; overall sample mean \\(\\bar y_{\\cdot\\cdot}\\) = <span class="num">'+fx(grandMean(k))+'</span> g; \\(n\\) = '+n.join(', ')+'.</p>';
+  if(extra) h+=extra;
+  el.innerHTML=h; typeset(el);
+  return {B,Bi,beta,mu};
+}
+function typeset(el){ if(window.MathJax&&MathJax.typesetPromise){ (MathJax.startup&&MathJax.startup.promise||Promise.resolve()).then(()=>{MathJax.typesetClear&&MathJax.typesetClear([el]);return MathJax.typesetPromise([el]);}).catch(e=>console.warn(e)); } }
+
+/* ---------------- plotting helpers ---------------- */
+const CFG={displaylogo:false,responsive:true,modeBarButtonsToRemove:['toImage','lasso2d','select2d']};
+function baseLayout(){const ink=cssVar('--ink'),muted=cssVar('--muted'),rule=cssVar('--rule');
+  return {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{family:'IBM Plex Sans Condensed, Arial Narrow, sans-serif',color:ink,size:13},
+    margin:{l:52,r:14,t:10,b:44},showlegend:false,uirevision:'keep',
+    xaxis:{gridcolor:rule,zerolinecolor:muted,linecolor:rule,tickfont:{color:muted}},
+    yaxis:{gridcolor:rule,zerolinecolor:rule,linecolor:rule,tickfont:{color:muted}},
+    hoverlabel:{font:{family:'IBM Plex Sans Condensed, sans-serif'}}};}
+function ax3(title,extra){const rule=cssVar('--rule'),muted=cssVar('--muted');
+  return Object.assign({title:{text:title,font:{size:13}},gridcolor:rule,zerolinecolor:muted,showbackground:false,tickfont:{color:muted,size:11},backgroundcolor:'rgba(0,0,0,0)'},extra||{});}
+function scene3(xt,yt,zt,ex){return Object.assign({xaxis:ax3(xt),yaxis:ax3(yt),zaxis:ax3(zt),aspectmode:'cube',uirevision:'keep',camera:{eye:{x:1.55,y:-1.55,z:0.85}}},ex||{});}
+function plot(id,data,layout){ if(!window.Plotly){document.getElementById(id).innerHTML='<p class="note">Plotting library did not load.</p>';return;} Plotly.react(id,data,layout,CFG); }
+function seg(containerId,opts,current,onPick){const el=document.getElementById(containerId);
+  el.innerHTML=opts.map(o=>'<button data-s="'+o+'" aria-pressed="'+(o===current)+'">'+SCHEME_LABEL[o]+'</button>').join('');
+  el.onclick=e=>{const b=e.target.closest('button');if(!b)return;onPick(b.dataset.s);};}
+function press(containerId,val,attr){document.querySelectorAll('#'+containerId+' button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[attr||'s']===val)));}
+
+/* ================= Section 3: k=2 line ================= */
+const k2={s:'treatment',a:-1,b:1};
+function renderK2(){
+  const k=2; let C; if(k2.s==='custom') C=[[k2.a],[k2.b]]; else C=contr(k,k2.s);
+  document.getElementById('k2-custom').hidden=(k2.s!=='custom');
+  document.getElementById('k2-a-v').textContent=fx(k2.a,2); document.getElementById('k2-b-v').textContent=fx(k2.b,2);
+  const res=algebraPanel(document.getElementById('k2-alg'),k,k2.s,C);
+  const data=sample(k), ink=cssVar('--ink'), accent=cssVar('--accent'), mark=cssVar('--mark'), muted=cssVar('--muted');
+  const all=data.flat(); const ylo=Math.min(...all)-1.2, yhi=Math.max(...all)+1.2;
+  const L=baseLayout(); const tr=[];
+  if(k2.s==='cell'){
+    data.forEach((ys,i)=>{tr.push({type:'scatter',mode:'markers',x:ys.map((_,j)=>i+1+0.18*JIT[i][j]),y:ys,marker:{size:7,color:gcol(i),opacity:.55},hovertemplate:GN(i)+': %{y:.2f} g<extra></extra>'});});
+    means(k).forEach((m,i)=>{tr.push({type:'scatter',mode:'lines+markers+text',x:[i+0.7,i+1.3],y:[m,m],line:{color:gcol(i),width:2},marker:{size:[0,0]},text:['','μ'+(i+1)+' = '+m.toFixed(2)],textposition:'middle right',textfont:{color:ink},hoverinfo:'skip'});});
+    L.xaxis=Object.assign(L.xaxis,{tickvals:[1,2],ticktext:[GN(0),GN(1)],range:[0.4,2.9],zeroline:false});
+    L.yaxis=Object.assign(L.yaxis,{range:[ylo,yhi],title:{text:'body mass (g)'}});
+    L.annotations=[{xref:'paper',yref:'paper',x:0.02,y:0.98,showarrow:false,align:'left',text:'No intercept, no slope: each coefficient is one group mean.<br>See Section 4 for the geometry.',font:{color:muted,size:12}}];
+    plot('k2-plot',tr,L); return;
+  }
+  const xs=C.map(r=>r[0]);
+  const span=Math.max(0.2,Math.abs(xs[1]-xs[0]));
+  data.forEach((ys,i)=>{tr.push({type:'scatter',mode:'markers',x:ys.map((_,j)=>xs[i]+0.10*span*JIT[i][j]),y:ys,marker:{size:7,color:gcol(i),opacity:.5},hovertemplate:GN(i)+' (x = '+xs[i]+'): %{y:.2f} g<extra></extra>'});});
+  if(res){
+    const [b0,b1]=res.beta; const X=[-1.7,1.7];
+    tr.push({type:'scatter',mode:'lines',x:X,y:X.map(x=>b0+b1*x),line:{color:ink,width:2},hoverinfo:'skip'});
+    // slope triangle
+    tr.push({type:'scatter',mode:'lines',x:[0,1,1],y:[b0,b0,b0+b1],line:{color:accent,width:2,dash:'dot'},hoverinfo:'skip'});
+    tr.push({type:'scatter',mode:'markers',x:[0],y:[b0],marker:{size:12,color:mark,line:{color:cssVar('--surface'),width:2}},hovertemplate:'β₀ = %{y:.3f}<extra></extra>'});
+    tr.push({type:'scatter',mode:'markers',x:xs,y:res.mu,marker:{size:14,color:[gcol(0),gcol(1)],line:{color:cssVar('--surface'),width:2}},hovertemplate:'group mean %{y:.2f}<extra></extra>'});
+    L.annotations=[
+      {x:0,y:b0,text:'β₀ = '+fx(b0,2),ax:-48,ay:-30,showarrow:true,arrowcolor:mark,font:{color:mark,size:13}},
+      {x:1,y:b0+b1/2,text:'β₁ = '+fx(b1,2),ax:46,ay:0,showarrow:true,arrowcolor:accent,font:{color:accent,size:13}},
+      {x:xs[0],y:res.mu[0],text:GN(0)+' x = '+fx(xs[0],2),yshift:-22,showarrow:false,font:{color:muted,size:11}},
+      {x:xs[1],y:res.mu[1],text:GN(1)+' x = '+fx(xs[1],2),yshift:22,showarrow:false,font:{color:muted,size:11}}];
+  }
+  L.shapes=[{type:'line',x0:0,x1:0,y0:ylo-50,y1:yhi+50,line:{color:muted,width:1,dash:'dash'}}];
+  L.xaxis=Object.assign(L.xaxis,{range:[-1.75,1.75],title:{text:'coded value x'},zeroline:false,dtick:0.5});
+  L.yaxis=Object.assign(L.yaxis,{range:[ylo,yhi],title:{text:'body mass (g)'}});
+  plot('k2-plot',tr,L);
+}
+seg('k2-seg',['cell','treatment','reverse','sum','dev','custom'],k2.s,s=>{k2.s=s;press('k2-seg',s);renderK2();});
+['a','b'].forEach(v=>document.getElementById('k2-'+v).addEventListener('input',e=>{k2[v]=+e.target.value;renderK2();}));
+
+/* ================= Section 4: hinge (k=2 indicators) ================= */
+const hinge={c:null,p:'trt'};
+function surfaceGrid(f,x0,x1,y0,y1,n){const xs=[],ys=[];for(let i=0;i<=n;i++){xs.push(x0+(x1-x0)*i/n);ys.push(y0+(y1-y0)*i/n);}
+  return {x:xs,y:ys,z:ys.map(y=>xs.map(x=>f(x,y)))};}
+function presetC(p,mu){return p==='zero'?0:p==='trt'?mu[0]:mu.reduce((a,b)=>a+b,0)/mu.length;}
+function renderHinge(){
+  const mu=means(2); if(hinge.c===null||hinge.p) hinge.c=hinge.p?presetC(hinge.p,mu):hinge.c;
+  const c=hinge.c, a=[mu[0]-c,mu[1]-c];
+  document.getElementById('hinge-c').value=c; document.getElementById('hinge-c-v').textContent=c.toFixed(2)+' g';
+  press('hinge-seg',hinge.p||'',"p");
+  const f=(d1,d2)=>c+a[0]*d1+a[1]*d2;
+  const ink=cssVar('--ink'),mark=cssVar('--mark'),accent=cssVar('--accent');
+  const g=surfaceGrid(f,0,1.05,0,1.05,12);
+  const tr=[{type:'surface',x:g.x,y:g.y,z:g.z,opacity:.55,showscale:false,colorscale:[[0,accent],[1,accent]],hoverinfo:'skip',contours:{z:{show:false}}}];
+  const data=sample(2);
+  data.forEach((ys,i)=>tr.push({type:'scatter3d',mode:'markers',x:ys.map(()=>i===0?1:0),y:ys.map(()=>i===0?0:1),z:ys,marker:{size:3,color:gcol(i),opacity:.8},hovertemplate:GN(i)+': %{z:.2f} g<extra></extra>'}));
+  tr.push({type:'scatter3d',mode:'lines',x:[1.05,-0.05],y:[-0.05,1.05],z:[f(1.05,-0.05),f(-0.05,1.05)],line:{color:ink,width:6},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'lines',x:[1.05,-0.05],y:[-0.05,1.05],z:[0,0],line:{color:ink,width:3,dash:'dash'},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'markers+text',x:[1,0],y:[0,1],z:mu,marker:{size:7,color:[gcol(0),gcol(1)],line:{color:ink,width:1}},text:['μ₁ '+mu[0].toFixed(2),'μ₂ '+mu[1].toFixed(2)],textposition:'top center',textfont:{color:ink},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'lines+markers+text',x:[0,0],y:[0,0],z:[0,c],line:{color:mark,width:7},marker:{size:[2,6],color:mark},text:['','μ = '+c.toFixed(2)],textposition:'middle left',textfont:{color:mark},hoverinfo:'skip'});
+  const L=baseLayout(); L.margin={l:0,r:0,t:0,b:0};
+  L.scene=scene3('d₁ (group 1)','d₂ (group 2)','body mass (g)',{zaxis:ax3('body mass (g)',{range:[-6,36]}),xaxis:ax3('d₁',{range:[-0.1,1.1]}),yaxis:ax3('d₂',{range:[-0.1,1.1]})});
+  plot('hinge-plot',tr,L);
+  // algebra
+  const el=document.getElementById('hinge-alg');
+  const t=v=>v.toFixed(2);
+  let h='<h4>Model notation</h4><div class="mathblock">\\[y_{ij}=\\mu+\\alpha_1 d_{1i}+\\alpha_2 d_{2i}+\\varepsilon_{ij}\\]</div>';
+  h+='<h4>Matrix form (rank-deficient)</h4><div class="mathblock">\\['+bmat([['y_{11}'],['\\vdots'],['y_{1n_1}'],['y_{21}'],['\\vdots'],['y_{2n_2}']])+'='+bmat([['1','1','0'],['\\vdots','\\vdots','\\vdots'],['1','1','0'],['1','0','1'],['\\vdots','\\vdots','\\vdots'],['1','0','1']])+'\\begin{bmatrix}\\mu\\\\\\alpha_1\\\\\\alpha_2\\end{bmatrix}+\\varepsilon\\]</div>';
+  h+='<p class="kv">Column 1 = column 2 + column 3, so \\(\\operatorname{rank}\\mathbf X=2<3\\): a one-parameter family of solutions.</p>';
+  h+='<h4>Current member of the family</h4><div class="mathblock">\\[\\mu='+t(c)+',\\quad\\alpha_1=\\bar y_1-\\mu='+t(a[0])+',\\quad\\alpha_2=\\bar y_2-\\mu='+t(a[1])+'\\]</div>';
+  h+='<div class="mathblock">\\[\\hat y_1=\\mu+\\alpha_1='+t(c+a[0])+',\\qquad \\hat y_2=\\mu+\\alpha_2='+t(c+a[1])+'\\]</div>';
+  h+='<p class="kv">Fitted values stay the same as \\(\\mu\\) moves. What changes is the height above the empty corner \\((0,0)\\), where no bird has both indicators equal to zero.</p>';
+  h+='<h4>Constraints and their reduced codings</h4><div class="tblwrap"><table class="coef"><thead><tr><th>Constraint</th><th>Equivalent coding</th><th style="text-align:right">μ</th></tr></thead><tbody>';
+  h+='<tr><td>\\(\\mu=0\\)</td><td>cell means, \\(\\mathbf X=\\mathbf D\\)</td><td class="est">0.00</td></tr>';
+  h+='<tr><td>\\(\\alpha_1=0\\)</td><td>treatment: drop \\(d_1\\); \\(x=d_2\\in\\{0,1\\}\\)</td><td class="est">'+t(mu[0])+'</td></tr>';
+  h+='<tr><td>\\(\\alpha_1+\\alpha_2=0\\)</td><td>sum: \\(x=d_1-d_2\\in\\{+1,-1\\}\\), \\(\\beta_1=\\alpha_1\\)</td><td class="est">'+t((mu[0]+mu[1])/2)+'</td></tr></tbody></table></div>';
+  el.innerHTML=h; typeset(el);
+}
+document.getElementById('hinge-seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;hinge.p=b.dataset.p;renderHinge();};
+document.getElementById('hinge-c').addEventListener('input',e=>{hinge.p=null;hinge.c=+e.target.value;renderHinge();});
+
+/* ================= Section 5: k=3 plane ================= */
+const k3={s:'treatment',custom:[[0,0],[1,0],[0,1]]};
+function buildCustom(){const el=document.getElementById('k3-custom');
+  let h='<span></span><span class="tag">x₁</span><span class="tag">x₂</span>';
+  k3.custom.forEach((r,i)=>{h+='<span style="color:'+gcol(i)+'">'+(i+1)+' '+GN(i)+'</span>'+r.map((v,j)=>'<input type="number" step="0.25" id="cu-'+i+'-'+j+'" value="'+v+'" aria-label="group '+(i+1)+' x'+(j+1)+'">').join('');});
+  el.innerHTML=h;
+  el.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{const [_,i,j]=e.target.id.split('-');const v=parseFloat(e.target.value);if(!isNaN(v)){k3.custom[+i][+j]=v;renderK3();}}));}
+function renderK3(){
+  const k=3; const s=k3.s; const C=contr(k,s,k3.custom);
+  document.getElementById('k3-custom').hidden=(s!=='custom');
+  const res=algebraPanel(document.getElementById('k3-alg'),k,s,C);
+  const ink=cssVar('--ink'),mark=cssVar('--mark'),accent=cssVar('--accent'),muted=cssVar('--muted');
+  if(s==='cell'||!res){
+    const L=baseLayout(); L.xaxis.visible=false; L.yaxis.visible=false;
+    L.annotations=[{xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,text:s==='cell'?'Cell means use three columns and no intercept.<br>That needs a 3-D code space: see Section 6.':'Singular coding: no unique plane.',font:{color:muted,size:14}}];
+    plot('k3-plot',[],L); plot('k3-map',[],Object.assign(baseLayout(),{xaxis:{visible:false},yaxis:{visible:false}})); return;
+  }
+  const [b0,b1,b2]=res.beta, mu=res.mu, f=(x,y)=>b0+b1*x+b2*y;
+  const px=C.map(r=>r[0]), py=C.map(r=>r[1]);
+  const x0=Math.min(0,...px)-0.35,x1=Math.max(0,...px)+0.35,y0=Math.min(0,...py)-0.35,y1=Math.max(0,...py)+0.35;
+  const g=surfaceGrid(f,x0,x1,y0,y1,14);
+  const data=sample(k); const all=data.flat();
+  const zfl=Math.min(...all, ...g.z.flat(), b0)-1;
+  const tr=[{type:'surface',x:g.x,y:g.y,z:g.z,opacity:.5,showscale:false,colorscale:[[0,accent],[1,accent]],hoverinfo:'skip'}];
+  data.forEach((ys,i)=>tr.push({type:'scatter3d',mode:'markers',x:ys.map(()=>px[i]),y:ys.map(()=>py[i]),z:ys,marker:{size:2.6,color:gcol(i),opacity:.8},hovertemplate:GN(i)+': %{z:.2f} g<extra></extra>'}));
+  tr.push({type:'scatter3d',mode:'lines',x:[...px,px[0]],y:[...py,py[0]],z:[...mu,mu[0]],line:{color:ink,width:4},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'lines',x:[...px,px[0]],y:[...py,py[0]],z:Array(4).fill(zfl),line:{color:muted,width:3},hoverinfo:'skip'});
+  for(let i=0;i<3;i++) tr.push({type:'scatter3d',mode:'lines',x:[px[i],px[i]],y:[py[i],py[i]],z:[zfl,mu[i]],line:{color:gcol(i),width:2,dash:'dot'},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'markers+text',x:px,y:py,z:mu,marker:{size:7,color:[0,1,2].map(gcol),line:{color:ink,width:1}},text:mu.map((m,i)=>'μ'+(i+1)+' '+m.toFixed(2)),textposition:'top center',textfont:{color:ink,size:12},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'lines+markers+text',x:[0,0],y:[0,0],z:[zfl,b0],line:{color:mark,width:7},marker:{size:[4,6],color:mark},text:['0','β₀ '+b0.toFixed(2)],textposition:['bottom center','middle left'],textfont:{color:mark},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'lines+text',x:[0,1],y:[0,0],z:[b0,b0+b1],line:{color:accent,width:8},text:['','β₁ '+fx(b1,2)],textposition:'middle right',textfont:{color:accent},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'lines+text',x:[0,0],y:[0,1],z:[b0,b0+b2],line:{color:accent,width:8},text:['','β₂ '+fx(b2,2)],textposition:'middle right',textfont:{color:accent},hoverinfo:'skip'});
+  const L=baseLayout(); L.margin={l:0,r:0,t:0,b:0}; L.scene=scene3('x₁','x₂','body mass (g)');
+  plot('k3-plot',tr,L);
+  // code-space map
+  const w=res.Bi[0];
+  const mtr=[{type:'scatter',mode:'lines',x:[...px,px[0]],y:[...py,py[0]],fill:'toself',fillcolor:cssVar('--accent-soft'),line:{color:muted,width:1},hoverinfo:'skip'}];
+  for(let i=0;i<3;i++) mtr.push({type:'scatter',mode:'lines',x:[0,px[i]],y:[0,py[i]],line:{color:gcol(i),width:1,dash:'dot'},hoverinfo:'skip'});
+  mtr.push({type:'scatter',mode:'markers+text',x:px,y:py,marker:{size:13,color:[0,1,2].map(gcol),line:{color:cssVar('--surface'),width:2}},text:[0,1,2].map(i=>(i+1)+' '+GN(i)+'  w = '+fracTxt(w[i])),textposition:'top center',textfont:{size:11,color:ink},hoverinfo:'skip'});
+  mtr.push({type:'scatter',mode:'markers+text',x:[0],y:[0],marker:{size:10,color:mark,symbol:'x'},text:['origin → β₀'],textposition:'bottom center',textfont:{color:mark,size:11},hoverinfo:'skip'});
+  const ML=baseLayout(); ML.margin={l:40,r:10,t:16,b:36};
+  ML.xaxis=Object.assign(ML.xaxis,{title:{text:'x₁'},range:[x0-0.2,x1+0.2],scaleanchor:'y',zeroline:true});
+  ML.yaxis=Object.assign(ML.yaxis,{title:{text:'x₂'},range:[y0-0.2,y1+0.35],zeroline:true,zerolinecolor:muted});
+  plot('k3-map',mtr,ML);
+}
+seg('k3-seg',['cell','treatment','sum','helmert','sdif','poly','custom'],k3.s,s=>{k3.s=s;press('k3-seg',s);renderK3();});
+
+/* ================= Section 6: simplex bubbles ================= */
+const simp={c:null,p:'sum'};
+function bubble(v,vmax,smax){return v<=0?0:smax*Math.sqrt(v/vmax);}
+function renderSimp(){
+  const mu=means(3); if(simp.p) simp.c=presetC(simp.p,mu);
+  const c=simp.c, a=mu.map(m=>m-c), mbar=mu.reduce((x,y)=>x+y,0)/3;
+  document.getElementById('simp-c').value=c; document.getElementById('simp-c-v').textContent=c.toFixed(2)+' g';
+  press('simp-seg',simp.p||'','p');
+  const ink=cssVar('--ink'),mark=cssVar('--mark'),muted=cssVar('--muted'),accent=cssVar('--accent');
+  const vmax=30, SM=46;
+  const f=d=>c+a[0]*d[0]+a[1]*d[1]+a[2]*d[2];
+  const tr=[{type:'mesh3d',x:[1,0,0],y:[0,1,0],z:[0,0,1],i:[0],j:[1],k:[2],opacity:.18,color:accent,hoverinfo:'skip'}];
+  tr.push({type:'scatter3d',mode:'lines',x:[1,0,0,1],y:[0,1,0,0],z:[0,0,1,0],line:{color:muted,width:3},hoverinfo:'skip'});
+  ['x','y','z'].forEach((_,ax)=>{const e=[0,0,0];e[ax]=1;tr.push({type:'scatter3d',mode:'lines',x:[0,e[0]],y:[0,e[1]],z:[0,e[2]],line:{color:muted,width:1.5,dash:'dot'},hoverinfo:'skip'});});
+  // ray origin -> centroid
+  const ts=[0.2,0.4,0.6,0.8]; const ray=ts.map(t=>[t/3,t/3,t/3]);
+  tr.push({type:'scatter3d',mode:'lines',x:[0,1/3],y:[0,1/3],z:[0,1/3],line:{color:muted,width:2,dash:'dash'},hoverinfo:'skip'});
+  const allV=[...ray.map(f), mbar, ...mu, c];
+  const cs=[[0,cssVar('--accent-soft')],[1,accent]]; const cmin=Math.min(0,...allV), cmax=Math.max(20,...allV);
+  tr.push({type:'scatter3d',mode:'markers',x:ray.map(r=>r[0]),y:ray.map(r=>r[1]),z:ray.map(r=>r[2]),marker:{size:ray.map(r=>bubble(f(r),vmax,SM)),color:muted,opacity:.55,line:{width:0}},hovertemplate:ray.map((r,i)=>'f at '+ts[i].toFixed(1)+'·centroid = '+f(r).toFixed(2)+' g<extra></extra>')});
+  tr.push({type:'scatter3d',mode:'markers+text',x:[1/3],y:[1/3],z:[1/3],marker:{size:bubble(mbar,vmax,SM),color:[mbar],cmin,cmax,colorscale:cs,opacity:.85,line:{color:ink,width:1}},text:['centroid '+mbar.toFixed(2)],textposition:'top center',textfont:{color:ink,size:11},hovertemplate:'centroid: mean of means %{text}<extra></extra>'});
+  tr.push({type:'scatter3d',mode:'markers+text',x:[1,0,0],y:[0,1,0],z:[0,0,1],marker:{size:mu.map(m=>bubble(m,vmax,SM)),color:[0,1,2].map(gcol),opacity:.85,line:{color:ink,width:1}},text:mu.map((m,i)=>GN(i)+' '+m.toFixed(2)),textposition:'top center',textfont:{color:ink,size:11},hoverinfo:'text'});
+  tr.push({type:'scatter3d',mode:'markers+text',x:[0],y:[0],z:[0],marker:{size:Math.max(3,bubble(c,vmax,SM)),color:mark,opacity:.75,line:{color:ink,width:2}},text:['μ = '+c.toFixed(2)],textposition:'bottom center',textfont:{color:mark,size:12},hovertemplate:'origin: intercept μ = '+c.toFixed(2)+'<extra></extra>'});
+  const L=baseLayout(); L.margin={l:0,r:0,t:0,b:0};
+  L.scene=scene3('d₁','d₂','d₃',{xaxis:ax3('d₁',{range:[-0.15,1.2]}),yaxis:ax3('d₂',{range:[-0.15,1.2]}),zaxis:ax3('d₃',{range:[-0.15,1.25]}),camera:{eye:{x:1.5,y:1.3,z:0.9}}});
+  plot('simp-plot',tr,L);
+  const t=v=>v.toFixed(2);
+  let h='<h4>Model notation</h4><div class="mathblock">\\[y_{ij}=\\mu+\\alpha_1d_{1i}+\\alpha_2d_{2i}+\\alpha_3d_{3i}+\\varepsilon_{ij}\\]</div>';
+  h+='<h4>Matrix form</h4><div class="mathblock">\\[\\mathbf y=\\big[\\mathbf 1\\,|\\,\\mathbf D\\big]\\begin{bmatrix}\\mu\\\\\\alpha_1\\\\\\alpha_2\\\\\\alpha_3\\end{bmatrix}+\\varepsilon,\\qquad \\mathbf B=\\begin{bmatrix}1&1&0&0\\\\1&0&1&0\\\\1&0&0&1\\end{bmatrix}\\;(3\\times4)\\]</div>';
+  h+='<p class="kv">\\(\\mathbf B\\) is not square, so it has no inverse. The null space of \\(\\mathbf B\\) is spanned by \\((1,-1,-1,-1)^\\top\\), and that is exactly the \\((\\mu+c,\\alpha_i-c)\\) direction.</p>';
+  h+='<h4>Current solution</h4><div class="mathblock">\\[\\mu='+t(c)+';\\quad \\alpha=('+a.map(t).join(',\\;')+');\\quad \\textstyle\\sum\\alpha_i='+t(a[0]+a[1]+a[2])+'\\]</div>';
+  h+='<div class="mathblock">\\[f(\\text{vertex}_i)=\\mu+\\alpha_i=('+mu.map(t).join(',\\;')+')\\quad f(\\text{centroid})='+t(mbar)+'\\]</div>';
+  h+='<h4>Reading the presets</h4><div class="tblwrap"><table class="coef"><thead><tr><th>Constraint</th><th>Origin value μ</th><th>Reduced coding</th></tr></thead><tbody>';
+  h+='<tr><td>\\(\\mu=0\\)</td><td class="est">0.00</td><td>cell means \\(\\mathbf X=\\mathbf D\\)</td></tr>';
+  h+='<tr><td>\\(\\alpha_1=0\\)</td><td class="est">'+t(mu[0])+'</td><td>treatment (drop \\(d_1\\))</td></tr>';
+  h+='<tr><td>\\(\\sum\\alpha_i=0\\)</td><td class="est">'+t(mbar)+'</td><td>sum-to-zero; the origin value equals the centroid value, so \\(f\\) is flat along the dashed ray</td></tr></tbody></table></div>';
+  el_simp.innerHTML=h; typeset(el_simp);
+}
+const el_simp=document.getElementById('simp-alg');
+document.getElementById('simp-seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;simp.p=b.dataset.p;renderSimp();};
+document.getElementById('simp-c').addEventListener('input',e=>{simp.p=null;simp.c=+e.target.value;renderSimp();});
+
+/* ================= Section 7: k=4 tetrahedron ================= */
+const k4={s:'treatment'};
+function renderK4(){
+  const k=4,s=k4.s; const C=contr(k,s);
+  const res=algebraPanel(document.getElementById('k4-alg'),k,s,C);
+  const ink=cssVar('--ink'),mark=cssVar('--mark'),muted=cssVar('--muted');
+  const L=baseLayout(); L.margin={l:0,r:0,t:0,b:0};
+  if(s==='cell'){L.annotations=[{xref:'paper',yref:'paper',x:.5,y:.5,showarrow:false,text:'Cell means: 4 indicator columns put the groups on a 3-simplex in 4-D.<br>The algebra on the right still applies.',font:{color:muted,size:14}}];L.xaxis.visible=false;L.yaxis.visible=false;plot('k4-plot',[],L);return;}
+  const mu=res.mu,b=res.beta, P=C;
+  const vmax=20, SM=44;
+  const tr=[];
+  const edges=[[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+  edges.forEach(([i,j])=>tr.push({type:'scatter3d',mode:'lines',x:[P[i][0],P[j][0]],y:[P[i][1],P[j][1]],z:[P[i][2],P[j][2]],line:{color:muted,width:3},hoverinfo:'skip'}));
+  tr.push({type:'mesh3d',x:P.map(p=>p[0]),y:P.map(p=>p[1]),z:P.map(p=>p[2]),i:[0,0,0,1],j:[1,1,2,2],k:[2,3,3,3],opacity:.08,color:cssVar('--accent'),hoverinfo:'skip'});
+  for(let i=0;i<4;i++) tr.push({type:'scatter3d',mode:'lines',x:[0,P[i][0]],y:[0,P[i][1]],z:[0,P[i][2]],line:{color:gcol(i),width:2,dash:'dot'},hoverinfo:'skip'});
+  tr.push({type:'scatter3d',mode:'markers+text',x:P.map(p=>p[0]),y:P.map(p=>p[1]),z:P.map(p=>p[2]),marker:{size:mu.map(m=>bubble(m,vmax,SM)),color:[0,1,2,3].map(gcol),opacity:.85,line:{color:ink,width:1}},text:mu.map((m,i)=>(i+1)+' '+GN(i)+' '+m.toFixed(2)),textposition:'top center',textfont:{color:ink,size:11},hoverinfo:'text'});
+  tr.push({type:'scatter3d',mode:'markers+text',x:[0],y:[0],z:[0],marker:{size:bubble(b[0],vmax,SM),color:mark,opacity:.55,line:{color:ink,width:3}},text:['β₀ '+b[0].toFixed(2)],textposition:'bottom center',textfont:{color:mark,size:12},hoverinfo:'text'});
+  const g=[b[1],b[2],b[3]], gn=Math.hypot(...g)||1, ext=Math.max(...P.flat().map(Math.abs)), Ls=0.75*ext;
+  const tip=g.map(v=>v/gn*Ls);
+  tr.push({type:'scatter3d',mode:'lines',x:[0,tip[0]],y:[0,tip[1]],z:[0,tip[2]],line:{color:ink,width:6},hoverinfo:'skip'});
+  tr.push({type:'cone',x:[tip[0]],y:[tip[1]],z:[tip[2]],u:[g[0]/gn],v:[g[1]/gn],w:[g[2]/gn],sizemode:'absolute',sizeref:0.18*ext,anchor:'tip',showscale:false,colorscale:[[0,ink],[1,ink]],hoverinfo:'skip'});
+  const r=ext*1.25;
+  L.scene=scene3('x₁','x₂','x₃',{xaxis:ax3('x₁',{range:[-r,r]}),yaxis:ax3('x₂',{range:[-r,r]}),zaxis:ax3('x₃',{range:[-r,r]})});
+  plot('k4-plot',tr,L);
+}
+seg('k4-seg',['cell','treatment','sum','helmert','sdif','poly'],k4.s,s=>{k4.s=s;press('k4-seg',s);renderK4();});
+
+/* ---------------- global ---------------- */
+function legend(){document.getElementById('legend').innerHTML=GROUPS.map((g,i)=>'<span><i class="dot" style="background:'+gcol(i)+'"></i>'+(i+1)+' '+g.name+'</span>').join('');
+  const n=unbalanced?N_UNBAL:N_BAL; document.getElementById('datafacts').textContent='n = '+n.join(' / ');}
+function renderAll(){legend();buildCustom();renderK2();renderHinge();renderK3();renderSimp();renderK4();}
+document.getElementById('bal-btn').onclick=()=>{unbalanced=false;document.getElementById('bal-btn').setAttribute('aria-pressed','true');document.getElementById('unbal-btn').setAttribute('aria-pressed','false');renderAll();};
+document.getElementById('unbal-btn').onclick=()=>{unbalanced=true;document.getElementById('bal-btn').setAttribute('aria-pressed','false');document.getElementById('unbal-btn').setAttribute('aria-pressed','true');renderAll();};
+new MutationObserver(renderAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',renderAll);}catch(e){}
+// expose pure functions for testing
+window.__anova={contr,inv,means,mv};
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',renderAll); else renderAll();
+})();
+</script>
+
+</body>
+</html>
